@@ -22,13 +22,25 @@ func TestClassifyDeviceVariants(t *testing.T) {
 		dev  *fakeDev
 		want deviceClass
 	}{
-		{"accelProp", &fakeDev{props: []evdev.EvProp{evdev.INPUT_PROP_ACCELEROMETER}}, deviceClass{}},
+		{
+			"accelProp",
+			&fakeDev{props: []evdev.EvProp{evdev.INPUT_PROP_ACCELEROMETER}},
+			deviceClass{},
+		},
 		{"accelName", &fakeDev{name: "Laptop Accelerometer"}, deviceClass{}},
 		{"lid", &fakeDev{name: "Lid Switch"}, deviceClass{}},
-		{"lidKbd", &fakeDev{name: "Lid Keyboard", keys: []evdev.EvCode{evdev.KEY_A}}, deviceClass{keyboard: true}},
+		{
+			"lidKbd",
+			&fakeDev{name: "Lid Keyboard", keys: []evdev.EvCode{evdev.KEY_A}},
+			deviceClass{keyboard: true},
+		},
 		{"power", &fakeDev{name: "Power Button"}, deviceClass{}},
 		{"sleep", &fakeDev{name: "Sleep Button"}, deviceClass{}},
-		{"nameErr", &fakeDev{nameErr: errors.New("x"), keys: []evdev.EvCode{evdev.KEY_SPACE}}, deviceClass{keyboard: true}},
+		{
+			"nameErr",
+			&fakeDev{nameErr: errors.New("x"), keys: []evdev.EvCode{evdev.KEY_SPACE}},
+			deviceClass{keyboard: true},
+		},
 		{"space", &fakeDev{keys: []evdev.EvCode{evdev.KEY_SPACE}}, deviceClass{keyboard: true}},
 		{"relOnly", &fakeDev{rels: []evdev.EvCode{evdev.REL_Y}}, deviceClass{mouse: true}},
 		{"btnOnly", &fakeDev{keys: []evdev.EvCode{evdev.BTN_LEFT}}, deviceClass{mouse: true}},
@@ -343,8 +355,8 @@ func TestReadDeviceDispatch(t *testing.T) {
 	}
 
 	path := "/dev/input/event0"
-	sess.reg.opened[path] = (kbd)
-	startReader(ctx, &readJob{sess: sess, dev: (kbd), path: path, class: deviceClass{keyboard: true}})
+	sess.reg.opened[path] = kbd
+	startReader(ctx, &readJob{sess: sess, dev: kbd, path: path, class: deviceClass{keyboard: true}})
 
 	mouse := mouseFake()
 	mouse.steps = []readStep{
@@ -357,8 +369,8 @@ func TestReadDeviceDispatch(t *testing.T) {
 	}
 
 	mpath := "/dev/input/event1"
-	sess.reg.opened[mpath] = (mouse)
-	startReader(ctx, &readJob{sess: sess, dev: (mouse), path: mpath, class: deviceClass{mouse: true}})
+	sess.reg.opened[mpath] = mouse
+	startReader(ctx, &readJob{sess: sess, dev: mouse, path: mpath, class: deviceClass{mouse: true}})
 
 	combo := comboFake()
 	combo.steps = []readStep{
@@ -370,9 +382,9 @@ func TestReadDeviceDispatch(t *testing.T) {
 	}
 
 	cpath := "/dev/input/event2"
-	sess.reg.opened[cpath] = (combo)
+	sess.reg.opened[cpath] = combo
 	startReader(ctx, &readJob{
-		sess: sess, dev: (combo), path: cpath,
+		sess: sess, dev: combo, path: cpath,
 		class: deviceClass{keyboard: true, mouse: true},
 	})
 
@@ -404,7 +416,11 @@ func TestDeliverSingleEmpty(t *testing.T) {
 }
 
 func TestHandleKeyIgnored(t *testing.T) {
-	handleKeyEvent(context.Background(), make(chan domain.Event, 1), keySample{code: btnLeft, value: 1})
+	handleKeyEvent(
+		context.Background(),
+		make(chan domain.Event, 1),
+		keySample{code: btnLeft, value: 1},
+	)
 }
 
 func TestEncodeInotifyHelpers(t *testing.T) {
