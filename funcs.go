@@ -19,7 +19,8 @@ import (
 func Start(ctx context.Context, interval time.Duration) (<-chan Stats, error) {
 	// Validate before opening OS adapters so arg errors are not masked by
 	// permission/device failures (e.g. Linux CI without /dev/input access).
-	if err := checkStartArgs(ctx, interval); err != nil {
+	err := checkStartArgs(ctx, interval)
+	if err != nil {
 		return nil, fmt.Errorf(errFmtStart, err)
 	}
 
@@ -38,7 +39,7 @@ func checkStartArgs(ctx context.Context, interval time.Duration) error {
 		return ErrNilContext
 	}
 
-	if interval <= 0 {
+	if interval <= minInterval {
 		return ErrInvalidInterval
 	}
 

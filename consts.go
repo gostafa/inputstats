@@ -6,4 +6,5 @@ package inputstats
 const (
 	errFmtStart = "start: %w"
 	errFmtWrap  = "%w"
+	minInterval = 0
 )
