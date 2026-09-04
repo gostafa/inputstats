@@ -22,10 +22,42 @@ func TestParseKeyUpIgnored(t *testing.T) {
 }
 
 func TestParseKeyIgnoresMouseButtons(t *testing.T) {
-	for _, code := range []uint16{btnLeft, btnRight, btnMiddle} {
+	for _, code := range []uint16{
+		btnLeft, btnRight, btnMiddle, btnSide, btnExtra, btnForward, btnBack, btnTask,
+	} {
 		if _, ok := parseKey(code, 1); ok {
 			t.Fatalf("mouse button %d should not count as keyboard", code)
 		}
+	}
+}
+
+func TestParseMouseButtonOtherIgnored(t *testing.T) {
+	if _, ok := parseMouseButton(btnMiddle, 1); ok {
+		t.Fatal("middle should be ignored")
+	}
+}
+
+func TestFlushSynNonReport(t *testing.T) {
+	st := mouseState{pendingMove: true}
+	if _, ok := flushSyn(evKey, &st); ok {
+		t.Fatal("non SYN_REPORT should not emit")
+	}
+	if !st.pendingMove {
+		t.Fatal("pending should remain")
+	}
+}
+
+func TestIsMouseButtonDefault(t *testing.T) {
+	if isMouseButton(keyA) {
+		t.Fatal("key should not be mouse button")
+	}
+}
+
+func TestNoteRelOtherCode(t *testing.T) {
+	var st mouseState
+	noteRel(99, &st)
+	if st.pendingMove {
+		t.Fatal("unknown rel code should not mark move")
 	}
 }
 

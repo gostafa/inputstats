@@ -26,6 +26,10 @@ const (
 	errFmtLinux = "linux: %w"
 	errFmtWrap  = "%w"
 
+	grantEnvAllow = "allow"
+	grantEnvDeny  = "deny"
+	grantEnvName  = "INPUTSTATS_TEST_GRANT"
+
 	// unixSizeofInotifyEvent and unixNameMax mirror golang.org/x/sys/unix
 	// constants so buffer capacity stays a compile-time const.
 	unixSizeofInotifyEvent = 16

@@ -5,9 +5,6 @@ package linux
 import (
 	"context"
 	"fmt"
-	"os"
-
-	"github.com/holoplot/go-evdev"
 )
 
 func alreadyOpen(reg *registry, path string) bool {
@@ -28,29 +25,38 @@ func armDevice(ctx context.Context, path string, claim *deviceClaim) bool {
 	return registerDevice(ctx, path, claim)
 }
 
-func openAndClassify(path string) (*evdev.InputDevice, deviceClass, error) {
-	dev, err := evdev.OpenWithFlags(path, os.O_RDONLY)
+func openAndClassify(deps *hookSet, path string) (classified, error) {
+	dev, err := deps.openDevice(path)
 	if err != nil {
-		return nil, deviceClass{}, fmt.Errorf(errFmtWrap, err)
+		return classified{}, fmt.Errorf(errFmtWrap, err)
 	}
 
+	result, classErr := classifyOpened(dev)
+	if classErr != nil {
+		return classified{class: result.class}, fmt.Errorf(errFmtWrap, classErr)
+	}
+
+	return result, nil
+}
+
+func classifyOpened(dev evdevDevice) (classified, error) {
 	class := classifyDevice(dev)
 	if !usable(class) {
 		closeHandle(dev)
 
-		return nil, class, errDeviceSkipped
+		return classified{class: class}, errDeviceSkipped
 	}
 
-	return dev, class, nil
+	return classified{dev: dev, class: class}, nil
 }
 
-func openUsable(path string) (*evdev.InputDevice, deviceClass) {
-	dev, class, err := openAndClassify(path)
+func openUsable(deps *hookSet, path string) classified {
+	result, err := openAndClassify(deps, path)
 	if err != nil {
-		return nil, deviceClass{}
+		return classified{}
 	}
 
-	return dev, class
+	return result
 }
 
 func registerDevice(ctx context.Context, path string, claim *deviceClaim) bool {
@@ -60,6 +66,10 @@ func registerDevice(ctx context.Context, path string, claim *deviceClaim) bool {
 		return false
 	}
 
+	return keepClaim(ctx, path, claim)
+}
+
+func keepClaim(ctx context.Context, path string, claim *deviceClaim) bool {
 	if ctx.Err() != nil {
 		unclaimPath(path, claim)
 		closeHandle(claim.dev)
@@ -101,12 +111,12 @@ func tryOpen(ctx context.Context, path string, sess *session) {
 		return
 	}
 
-	dev, class := openUsable(path)
-	if dev == nil {
+	result := openUsable(sess.deps, path)
+	if result.dev == nil {
 		return
 	}
 
-	claim := &deviceClaim{reg: sess.reg, dev: dev}
+	claim := &deviceClaim{reg: sess.reg, dev: result.dev}
 	if !armDevice(ctx, path, claim) {
 		return
 	}
@@ -114,8 +124,8 @@ func tryOpen(ctx context.Context, path string, sess *session) {
 	startReader(ctx, &readJob{
 		path:  path,
 		sess:  sess,
-		dev:   dev,
-		class: class,
+		dev:   result.dev,
+		class: result.class,
 	})
 }
 

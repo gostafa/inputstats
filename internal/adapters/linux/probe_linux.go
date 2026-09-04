@@ -16,6 +16,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const (
+	skipLid      = "lid"
+	skipKeyboard = "keyboard"
+)
+
 func classifyDevice(dev evdevInfo) deviceClass {
 	if hasAccelProp(dev) {
 		return deviceClass{}
@@ -90,8 +95,8 @@ func isSkipDeviceName(dev evdevInfo) bool {
 	return nameLooksSkipped(strings.ToLower(name))
 }
 
-func listEventPaths() ([]string, error) {
-	matches, err := filepath.Glob(filepath.Join(inputDir, eventNameGlob))
+func listEventPaths(deps *hookSet) ([]string, error) {
+	matches, err := deps.globEventPaths(filepath.Join(inputDir, eventNameGlob))
 	if err != nil {
 		return nil, fmt.Errorf(errFmtWrap, err)
 	}
@@ -116,7 +121,7 @@ func nameLooksSkipped(lower string) bool {
 		return true
 	}
 
-	if strings.Contains(lower, "lid") && !strings.Contains(lower, "keyboard") {
+	if strings.Contains(lower, skipLid) && !strings.Contains(lower, skipKeyboard) {
 		return true
 	}
 
@@ -134,18 +139,18 @@ func noteProbeErr(err error, stats *probeStats) {
 	}
 }
 
-func probeAll(paths []string) probeStats {
+func probeAll(deps *hookSet, paths []string) probeStats {
 	var stats probeStats
 
 	for index := range paths {
-		probeOne(paths[index], &stats)
+		probeOne(deps, paths[index], &stats)
 	}
 
 	return stats
 }
 
-func probeDevices() error {
-	paths, err := listEventPaths()
+func probeDevices(deps *hookSet) error {
+	paths, err := listEventPaths(deps)
 	if err != nil {
 		return fmt.Errorf(errFmtWrap, mapListErr(err))
 	}
@@ -154,7 +159,7 @@ func probeDevices() error {
 		return domain.ErrNoInputDevices
 	}
 
-	err = probeOutcome(probeAll(paths))
+	err = probeOutcome(probeAll(deps, paths))
 	if err != nil {
 		return fmt.Errorf(errFmtWrap, err)
 	}
@@ -162,23 +167,19 @@ func probeDevices() error {
 	return nil
 }
 
-func probeOne(path string, stats *probeStats) {
-	dev, class, err := openAndClassify(path)
+func probeOne(deps *hookSet, path string, stats *probeStats) {
+	result, err := openAndClassify(deps, path)
 	if err != nil {
 		noteProbeErr(err, stats)
 
 		return
 	}
 
-	if !usable(class) {
-		closeHandle(dev)
-
-		return
+	if usable(result.class) {
+		stats.usable++
 	}
 
-	stats.usable++
-
-	closeHandle(dev)
+	closeHandle(result.dev)
 }
 
 func probeOutcome(stats probeStats) error {

@@ -8,13 +8,12 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"golang.org/x/sys/unix"
 )
 
-func addInputWatch(watchFD int) error {
-	watchDesc, watchErr := unix.InotifyAddWatch(
+func addInputWatch(deps *hookSet, watchFD int) error {
+	watchDesc, watchErr := deps.inotifyAddWatch(
 		watchFD,
 		inputDir,
 		unix.IN_CREATE|unix.IN_ATTRIB|unix.IN_MOVED_TO,
@@ -23,6 +22,15 @@ func addInputWatch(watchFD int) error {
 		return fmt.Errorf(errFmtWrap, watchErr)
 	}
 
+	err := checkWatchDesc(watchDesc)
+	if err != nil {
+		return fmt.Errorf(errFmtWrap, err)
+	}
+
+	return nil
+}
+
+func checkWatchDesc(watchDesc int) error {
 	if watchDesc <= evSyn {
 		return errDeviceSkipped
 	}
@@ -30,8 +38,8 @@ func addInputWatch(watchFD int) error {
 	return nil
 }
 
-func closeWatch(watchFD int) {
-	closeErr := unix.Close(watchFD)
+func closeWatch(deps *hookSet, watchFD int) {
+	closeErr := deps.unixClose(watchFD)
 	if closeErr != nil {
 		return
 	}
@@ -70,12 +78,12 @@ func fillInotifyNames(buf []byte, names []string) {
 	}
 }
 
-func handleHotplugErr(ctx context.Context, err error) bool {
+func handleHotplugErr(ctx context.Context, deps *hookSet, err error) bool {
 	if !isAgain(err) {
 		return false
 	}
 
-	return waitAgain(ctx, hotplugPollDelay)
+	return waitAgain(ctx, deps, hotplugPollDelay)
 }
 
 func handleHotplugNames(ctx context.Context, sess *session, buf []byte) {
@@ -85,15 +93,24 @@ func handleHotplugNames(ctx context.Context, sess *session, buf []byte) {
 	}
 }
 
-func initInotify() (int, error) {
-	watchFD, err := unix.InotifyInit1(unix.IN_CLOEXEC | unix.IN_NONBLOCK)
+func initInotify(deps *hookSet) (int, error) {
+	watchFD, err := deps.inotifyInit1(unix.IN_CLOEXEC | unix.IN_NONBLOCK)
 	if err != nil {
 		return evSyn, fmt.Errorf(errFmtWrap, err)
 	}
 
-	addErr := addInputWatch(watchFD)
+	fd, finishErr := finishInotify(deps, watchFD)
+	if finishErr != nil {
+		return evSyn, fmt.Errorf(errFmtWrap, finishErr)
+	}
+
+	return fd, nil
+}
+
+func finishInotify(deps *hookSet, watchFD int) (int, error) {
+	addErr := addInputWatch(deps, watchFD)
 	if addErr != nil {
-		closeWatch(watchFD)
+		closeWatch(deps, watchFD)
 
 		return evSyn, fmt.Errorf(errFmtWrap, addErr)
 	}
@@ -116,7 +133,7 @@ func openHotplugName(ctx context.Context, sess *session, name string) {
 
 	path := filepath.Join(inputDir, name)
 	tryOpen(ctx, path, sess)
-	scheduleRetry(ctx, path, sess)
+	scheduleRetry(ctx, sess, path)
 }
 
 func parseInotifyNames(buf []byte) []string {
@@ -150,9 +167,9 @@ func pumpHotplug(ctx context.Context, sess *session, watchFD int) {
 }
 
 func readHotplug(ctx context.Context, job *hotplugRead) bool {
-	nbytes, err := unix.Read(job.watchFD, job.buf)
+	nbytes, err := job.sess.deps.unixRead(job.watchFD, job.buf)
 	if err != nil {
-		return handleHotplugErr(ctx, err)
+		return handleHotplugErr(ctx, job.sess.deps, err)
 	}
 
 	handleHotplugNames(ctx, job.sess, job.buf[:nbytes])
@@ -175,12 +192,12 @@ func readInotifyName(buf []byte, offset int) (next int, name string) {
 	return offset + nameLen, name
 }
 
-func scheduleRetry(ctx context.Context, path string, sess *session) {
+func scheduleRetry(ctx context.Context, sess *session, path string) {
 	if ctx.Err() != nil {
 		return
 	}
 
-	time.AfterFunc(hotplugRetryDelay, func() {
+	sess.deps.afterFunc(hotplugRetryDelay, func() {
 		tryOpen(ctx, path, sess)
 	})
 }
@@ -196,14 +213,14 @@ func storeName(names []string, index int, name string) int {
 }
 
 func watchHotplug(ctx context.Context, sess *session) {
-	watchFD, err := initInotify()
+	watchFD, err := initInotify(sess.deps)
 	if err != nil {
 		<-ctx.Done()
 
 		return
 	}
 
-	defer closeWatch(watchFD)
+	defer closeWatch(sess.deps, watchFD)
 
 	pumpHotplug(ctx, sess, watchFD)
 }

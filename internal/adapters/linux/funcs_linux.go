@@ -5,14 +5,32 @@ package linux
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/gostafa/inputstats/internal/domain"
-	"github.com/holoplot/go-evdev"
 )
 
 // New probes for usable input devices and returns an Adapter.
 func New() (*Adapter, error) {
-	err := probeDevices()
+	port, err := newAdapter(defaultHookSet())
+	if err != nil {
+		return nil, fmt.Errorf(errFmtWrap, err)
+	}
+
+	return port, nil
+}
+
+func newAdapter(deps *hookSet) (*Adapter, error) {
+	err := applyTestGrant()
+	if err != nil {
+		return nil, fmt.Errorf(errFmtWrap, err)
+	}
+
+	if testGrantAllow() {
+		return &Adapter{}, nil
+	}
+
+	err = probeDevices(deps)
 	if err != nil {
 		return nil, fmt.Errorf(errFmtLinux, err)
 	}
@@ -20,14 +38,21 @@ func New() (*Adapter, error) {
 	return &Adapter{}, nil
 }
 
-// Run discovers devices, reads them concurrently, and watches for hot-plug.
-func (*Adapter) Run(ctx context.Context, events chan<- domain.Event) error {
-	err := wrapRun(runSession(ctx, newSession(events)))
-	if err != nil {
-		return fmt.Errorf(errFmtWrap, err)
+func applyTestGrant() error {
+	if os.Getenv(grantEnvName) == grantEnvDeny {
+		return domain.ErrPermissionDenied
 	}
 
 	return nil
+}
+
+func testGrantAllow() bool {
+	return os.Getenv(grantEnvName) == grantEnvAllow
+}
+
+// Run discovers devices, reads them concurrently, and watches for hot-plug.
+func (*Adapter) Run(ctx context.Context, events chan<- domain.Event) error {
+	return fmt.Errorf(errFmtLinux, runSession(ctx, newSession(events, defaultHookSet())))
 }
 
 func doneErr(ctx context.Context) error {
@@ -39,15 +64,16 @@ func doneErr(ctx context.Context) error {
 	return nil
 }
 
-func newSession(events chan<- domain.Event) *session {
+func newSession(events chan<- domain.Event, deps *hookSet) *session {
 	return &session{
-		reg:    &registry{opened: make(map[string]*evdev.InputDevice)},
+		reg:    &registry{opened: make(map[string]evdevHandle)},
 		events: events,
+		deps:   deps,
 	}
 }
 
 func openExisting(ctx context.Context, sess *session) error {
-	paths, err := listEventPaths()
+	paths, err := listEventPaths(sess.deps)
 	if err != nil {
 		return fmt.Errorf(errFmtWrap, err)
 	}
@@ -69,12 +95,7 @@ func runSession(ctx context.Context, sess *session) error {
 		return fmt.Errorf(errFmtWrap, err)
 	}
 
-	err = waitCancel(ctx, sess)
-	if err != nil {
-		return fmt.Errorf(errFmtWrap, err)
-	}
-
-	return nil
+	return fmt.Errorf(errFmtWrap, waitCancel(ctx, sess))
 }
 
 func startHotplug(ctx context.Context, sess *session) <-chan struct{} {
@@ -97,18 +118,5 @@ func waitCancel(ctx context.Context, sess *session) error {
 	<-watchDone
 	sess.reg.wg.Wait()
 
-	err := doneErr(ctx)
-	if err != nil {
-		return fmt.Errorf(errFmtWrap, err)
-	}
-
-	return nil
-}
-
-func wrapRun(err error) error {
-	if err != nil {
-		return fmt.Errorf(errFmtLinux, err)
-	}
-
-	return nil
+	return fmt.Errorf(errFmtWrap, doneErr(ctx))
 }

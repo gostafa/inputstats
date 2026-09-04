@@ -108,6 +108,13 @@ func TestStartWithError(t *testing.T) {
 	}
 }
 
+func TestStartWithMonitorError(t *testing.T) {
+	ch, err := startWith(context.Background(), 0, &boot{port: &fakePort{}})
+	if err == nil || ch != nil {
+		t.Fatal("expected wrapped error")
+	}
+}
+
 func TestStartWithOK(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -120,5 +127,31 @@ func TestStartWithOK(t *testing.T) {
 	cancel()
 
 	for range ch {
+	}
+}
+
+func TestStartOK(t *testing.T) {
+	t.Setenv("INPUTSTATS_TEST_GRANT", "allow")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch, err := Start(ctx, testInterval)
+	if err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	cancel()
+
+	for range ch {
+	}
+}
+
+func TestStartAdapterError(t *testing.T) {
+	t.Setenv("INPUTSTATS_TEST_GRANT", "deny")
+
+	ch, err := Start(context.Background(), testInterval)
+	if err == nil || ch != nil {
+		t.Fatal("expected adapter error")
 	}
 }

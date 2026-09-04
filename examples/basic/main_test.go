@@ -183,6 +183,18 @@ func TestRunError(t *testing.T) {
 	}
 }
 
+func TestRunOK(t *testing.T) {
+	t.Setenv("INPUTSTATS_TEST_GRANT", "allow")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := run(ctx)
+	if err != nil && !errors.Is(err, context.Canceled) {
+		t.Fatalf("run: %v", err)
+	}
+}
+
 func TestWriteLineError(t *testing.T) {
 	err := writeLine(failWriter{}, "x")
 	if err == nil {

@@ -8,7 +8,6 @@ import (
 
 	"github.com/gostafa/inputstats/internal/domain"
 	"github.com/gostafa/inputstats/internal/ports"
-	"github.com/holoplot/go-evdev"
 )
 
 func closeAll(reg *registry) {
@@ -115,12 +114,12 @@ func deliverMouseSyn(ctx context.Context, events chan<- domain.Event, sample mou
 	ports.Deliver(ctx, events, domain.Event{Type: kind})
 }
 
-func handleReadErr(ctx context.Context, err error) bool {
+func handleReadErr(ctx context.Context, deps *hookSet, err error) bool {
 	if !isAgain(err) {
 		return false
 	}
 
-	return waitAgain(ctx, againDelay)
+	return waitAgain(ctx, deps, againDelay)
 }
 
 func readDevice(ctx context.Context, job *readJob) {
@@ -142,7 +141,7 @@ func readDevice(ctx context.Context, job *readJob) {
 func readOneEvent(ctx context.Context, job *readJob, state *mouseState) bool {
 	event, err := job.dev.ReadOne()
 	if err != nil {
-		return handleReadErr(ctx, err)
+		return handleReadErr(ctx, job.sess.deps, err)
 	}
 
 	dispatch(ctx, &dispatchJob{
@@ -155,11 +154,11 @@ func readOneEvent(ctx context.Context, job *readJob, state *mouseState) bool {
 	return true
 }
 
-func snapshotHandles(reg *registry) []*evdev.InputDevice {
+func snapshotHandles(reg *registry) []evdevHandle {
 	reg.mu.Lock()
 	defer reg.mu.Unlock()
 
-	handles := make([]*evdev.InputDevice, evSyn, len(reg.opened))
+	handles := make([]evdevHandle, evSyn, len(reg.opened))
 	for path := range reg.opened {
 		handles = append(handles, reg.opened[path])
 	}
@@ -167,7 +166,7 @@ func snapshotHandles(reg *registry) []*evdev.InputDevice {
 	return handles
 }
 
-func unregister(reg *registry, path string, dev *evdev.InputDevice) {
+func unregister(reg *registry, path string, dev evdevHandle) {
 	reg.mu.Lock()
 	defer reg.mu.Unlock()
 
@@ -179,11 +178,11 @@ func unregister(reg *registry, path string, dev *evdev.InputDevice) {
 	delete(reg.opened, path)
 }
 
-func waitAgain(ctx context.Context, delay time.Duration) bool {
+func waitAgain(ctx context.Context, deps *hookSet, delay time.Duration) bool {
 	select {
 	case <-ctx.Done():
 		return false
-	case <-time.After(delay):
+	case <-deps.afterDelay(delay):
 		return true
 	}
 }

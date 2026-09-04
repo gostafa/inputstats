@@ -4,6 +4,7 @@ package linux
 
 import (
 	"sync"
+	"time"
 
 	"github.com/gostafa/inputstats/internal/domain"
 	"github.com/holoplot/go-evdev"
@@ -19,7 +20,7 @@ type (
 	}
 
 	registry = struct {
-		opened map[string]*evdev.InputDevice
+		opened map[string]evdevHandle
 		wg     sync.WaitGroup
 		mu     sync.Mutex
 	}
@@ -27,6 +28,7 @@ type (
 	session = struct {
 		reg    *registry
 		events chan<- domain.Event
+		deps   *hookSet
 	}
 
 	evdevHandle interface {
@@ -41,9 +43,14 @@ type (
 		CapableEvents(evType evdev.EvType) []evdev.EvCode
 	}
 
+	evdevDevice interface {
+		evdevHandle
+		evdevInfo
+	}
+
 	readJob = struct {
 		sess  *session
-		dev   *evdev.InputDevice
+		dev   evdevHandle
 		path  string
 		class deviceClass
 	}
@@ -68,7 +75,7 @@ type (
 
 	deviceClaim = struct {
 		reg *registry
-		dev *evdev.InputDevice
+		dev evdevHandle
 	}
 
 	probeStats = struct {
@@ -80,5 +87,21 @@ type (
 		sess    *session
 		buf     []byte
 		watchFD int
+	}
+
+	classified = struct {
+		dev   evdevHandle
+		class deviceClass
+	}
+
+	hookSet = struct {
+		openDevice      func(string) (evdevDevice, error)
+		globEventPaths  func(string) ([]string, error)
+		inotifyInit1    func(int) (int, error)
+		inotifyAddWatch func(int, string, uint32) (int, error)
+		unixClose       func(int) error
+		unixRead        func(int, []byte) (int, error)
+		afterFunc       func(time.Duration, func()) *time.Timer
+		afterDelay      func(time.Duration) <-chan time.Time
 	}
 )
