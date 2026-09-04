@@ -17,6 +17,12 @@ import (
 // The channel is closed when ctx is canceled or the adapter exits.
 // Adapter construction is synchronous; goroutines start only after it succeeds.
 func Start(ctx context.Context, interval time.Duration) (<-chan Stats, error) {
+	// Validate before opening OS adapters so arg errors are not masked by
+	// permission/device failures (e.g. Linux CI without /dev/input access).
+	if err := checkStartArgs(ctx, interval); err != nil {
+		return nil, fmt.Errorf(errFmtStart, err)
+	}
+
 	port, openErr := adapters.New()
 
 	out, startErr := startWith(ctx, interval, &boot{err: openErr, port: port})
@@ -25,6 +31,18 @@ func Start(ctx context.Context, interval time.Duration) (<-chan Stats, error) {
 	}
 
 	return out, nil
+}
+
+func checkStartArgs(ctx context.Context, interval time.Duration) error {
+	if ctx == nil {
+		return ErrNilContext
+	}
+
+	if interval <= 0 {
+		return ErrInvalidInterval
+	}
+
+	return nil
 }
 
 func monitor(
