@@ -1,17 +1,24 @@
+// Gostafa 2026.
+// SPDX-License-Identifier: Apache-2.0.
+
 package domain
 
-import "time"
+import (
+	"time"
+)
 
-// EventType classifies a counted input activity.
-type EventType uint8
+type (
+	// EventType classifies a counted input activity.
+	EventType = uint8
 
-// Event is a single counted input activity (no key identity or coordinates).
-type Event struct {
-	Type EventType
-}
+	// Event is a single counted input activity (no key identity or coordinates).
+	Event = struct {
+		Type EventType
+	}
 
-// Stats holds activity counts for one aggregation interval [From, To).
-type Stats struct {
-	From, To                                            time.Time
-	KeyboardClicks, MouseMoves, LeftClicks, RightClicks uint64
-}
+	// Stats holds activity counts for one aggregation interval [From, To).
+	Stats = struct {
+		From, To                                            time.Time
+		KeyboardClicks, MouseMoves, LeftClicks, RightClicks uint64
+	}
+)

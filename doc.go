@@ -1,6 +1,5 @@
-// Package inputstats monitors keyboard and mouse activity and emits
-// interval statistics. Counts only — no key identities or pointer positions.
-//
-// Call Start to begin monitoring; cancel the context to stop. The returned
-// channel is closed when aggregation ends.
+// Gostafa 2026.
+// SPDX-License-Identifier: Apache-2.0.
+
+// Package inputstats monitors keyboard and mouse activity and emits interval stats.
 package inputstats

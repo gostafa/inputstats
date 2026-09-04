@@ -308,7 +308,8 @@ func registerClass(wc *wndClass) (uint16, error) {
 }
 
 func createWindowEx(exStyle uint32, className, windowName *uint16, style uint32,
-	x, y, w, h int32, parent windows.HWND, menu, instance windows.Handle, param uintptr) (windows.HWND, error) {
+	x, y, w, h int32, parent windows.HWND, menu, instance windows.Handle, param uintptr,
+) (windows.HWND, error) {
 	r, _, e := procCreateWindowExW.Call(
 		uintptr(exStyle),
 		uintptr(unsafe.Pointer(className)),
@@ -340,7 +341,12 @@ func defWindowProc(hwnd windows.HWND, msg uint32, wParam, lParam uintptr) uintpt
 }
 
 func getMessage(m *msg, hwnd windows.HWND, min, max uint32) (int32, error) {
-	r, _, e := procGetMessageW.Call(uintptr(unsafe.Pointer(m)), uintptr(hwnd), uintptr(min), uintptr(max))
+	r, _, e := procGetMessageW.Call(
+		uintptr(unsafe.Pointer(m)),
+		uintptr(hwnd),
+		uintptr(min),
+		uintptr(max),
+	)
 	// GetMessage returns -1 on error, 0 on WM_QUIT, >0 otherwise.
 	if int32(r) == -1 {
 		return -1, e
@@ -396,7 +402,13 @@ func registerRawInputDevices(devices []rawInputDevice) error {
 	return nil
 }
 
-func getRawInputData(hRaw uintptr, command uint32, data *byte, dataSize *uint32, headerSize uint32) (uint32, error) {
+func getRawInputData(
+	hRaw uintptr,
+	command uint32,
+	data *byte,
+	dataSize *uint32,
+	headerSize uint32,
+) (uint32, error) {
 	var pData uintptr
 	if data != nil {
 		pData = uintptr(unsafe.Pointer(data))

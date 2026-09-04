@@ -1,3 +1,6 @@
+// Gostafa 2026.
+// SPDX-License-Identifier: Apache-2.0.
+
 package ports
 
 import (
@@ -6,7 +9,9 @@ import (
 	"github.com/gostafa/inputstats/internal/domain"
 )
 
-// InputPort is the OS-specific input monitoring adapter.
-type InputPort interface {
-	Run(ctx context.Context, events chan<- domain.Event) error
-}
+type (
+	// InputPort is the OS-specific input monitoring adapter.
+	InputPort interface {
+		Run(ctx context.Context, events chan<- domain.Event) error
+	}
+)

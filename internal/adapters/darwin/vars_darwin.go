@@ -4,12 +4,6 @@ package darwin
 
 import (
 	"errors"
-	"sync/atomic"
-)
-
-var (
-	activeSink atomic.Pointer[eventSink]
-	activeTap  atomic.Pointer[eventTap]
 )
 
 var (

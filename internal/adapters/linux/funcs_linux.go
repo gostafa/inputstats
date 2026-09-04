@@ -12,11 +12,10 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/holoplot/go-evdev"
-	"golang.org/x/sys/unix"
-
 	"github.com/gostafa/inputstats/internal/domain"
 	"github.com/gostafa/inputstats/internal/ports"
+	"github.com/holoplot/go-evdev"
+	"golang.org/x/sys/unix"
 )
 
 // New probes for usable input devices and returns an Adapter.
@@ -84,7 +83,13 @@ func (a *Adapter) tryOpen(ctx context.Context, path string, events chan<- domain
 	}()
 }
 
-func (a *Adapter) readDevice(ctx context.Context, path string, dev *evdev.InputDevice, class deviceClass, events chan<- domain.Event) {
+func (a *Adapter) readDevice(
+	ctx context.Context,
+	path string,
+	dev *evdev.InputDevice,
+	class deviceClass,
+	events chan<- domain.Event,
+) {
 	defer func() {
 		a.mu.Lock()
 		if cur, ok := a.opened[path]; ok && cur == dev {
@@ -116,12 +121,18 @@ func (a *Adapter) readDevice(ctx context.Context, path string, dev *evdev.InputD
 	}
 }
 
-func (a *Adapter) dispatch(ctx context.Context, ev *evdev.InputEvent, class deviceClass, st *mouseState, events chan<- domain.Event) {
+func (a *Adapter) dispatch(
+	ctx context.Context,
+	ev *evdev.InputEvent,
+	class deviceClass,
+	st *mouseState,
+	events chan<- domain.Event,
+) {
 	typ := uint16(ev.Type)
 	code := uint16(ev.Code)
 	switch {
 	case class.keyboard && class.mouse:
-		if kind, ok := parseEvdev(typ, code, ev.Value, st); ok {
+		if kind, ok := parseEvdev(evdevSample{typ: typ, code: code, value: ev.Value}, st); ok {
 			ports.Deliver(ctx, events, domain.Event{Type: kind})
 		}
 	case class.keyboard:
@@ -153,7 +164,11 @@ func (a *Adapter) watchHotplug(ctx context.Context, events chan<- domain.Event) 
 	}
 	defer unix.Close(fd)
 
-	if _, err := unix.InotifyAddWatch(fd, inputDir, unix.IN_CREATE|unix.IN_ATTRIB|unix.IN_MOVED_TO); err != nil {
+	if _, err := unix.InotifyAddWatch(
+		fd,
+		inputDir,
+		unix.IN_CREATE|unix.IN_ATTRIB|unix.IN_MOVED_TO,
+	); err != nil {
 		<-ctx.Done()
 		return
 	}
@@ -357,7 +372,13 @@ func handleKeyEvent(ctx context.Context, events chan<- domain.Event, code uint16
 }
 
 // handleMouseEvent processes mouse-related EV_KEY / EV_REL / EV_SYN events.
-func handleMouseEvent(ctx context.Context, events chan<- domain.Event, typ, code uint16, value int32, st *mouseState) {
+func handleMouseEvent(
+	ctx context.Context,
+	events chan<- domain.Event,
+	typ, code uint16,
+	value int32,
+	st *mouseState,
+) {
 	switch typ {
 	case evKey:
 		if kind, ok := parseMouseButton(code, value); ok {

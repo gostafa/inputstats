@@ -11,4 +11,16 @@ const (
 	cgEventRightMouseDragged uint32 = 7
 	cgEventKeyDown           uint32 = 10
 	cgEventOtherMouseDragged uint32 = 27
+
+	cfRefNull = 0
+
+	errFmtDarwin = "darwin: %w"
+	errFmtWrap   = "%w"
+
+	grantEnvAllow = "allow"
+	grantEnvDeny  = "deny"
+	grantEnvName  = "INPUTSTATS_TEST_GRANT"
+
+	failHandle = ^uintptr(1)
+	stubHandle = ^uintptr(0)
 )

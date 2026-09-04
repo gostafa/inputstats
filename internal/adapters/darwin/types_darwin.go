@@ -2,27 +2,38 @@
 
 package darwin
 
-/*
-#include <CoreFoundation/CoreFoundation.h>
-*/
-import "C"
-
 import (
-	"context"
-
 	"github.com/gostafa/inputstats/internal/domain"
 )
 
-// Adapter monitors keyboard and mouse via a listen-only CGEventTap.
-type Adapter struct{}
+type (
+	// Adapter monitors keyboard and mouse via a listen-only CGEventTap.
+	Adapter struct{}
 
-type eventSink struct {
-	ctx    context.Context
-	events chan<- domain.Event
-}
+	createKey struct{}
 
-type eventTap struct {
-	tap    C.CFMachPortRef
-	source C.CFRunLoopSourceRef
-	loop   C.CFRunLoopRef
-}
+	tapState = struct {
+		done   <-chan struct{}
+		events chan<- domain.Event
+		tap    *eventTap
+	}
+
+	tapResult = struct {
+		err error
+		tap *eventTap
+	}
+
+	tapFactory = func(uintptr) (*eventTap, error)
+
+	runLoop interface {
+		attach(ready chan<- struct{})
+		disable()
+		run()
+		stop()
+	}
+
+	tapSwitch interface {
+		enable()
+		isEnabled() bool
+	}
+)

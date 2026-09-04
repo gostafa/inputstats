@@ -2,87 +2,12 @@
 
 package darwin
 
-/*
-#cgo LDFLAGS: -framework CoreGraphics -framework ApplicationServices -framework IOKit -framework CoreFoundation
-
-#include <ApplicationServices/ApplicationServices.h>
-#include <CoreFoundation/CoreFoundation.h>
-#include <IOKit/hidsystem/IOHIDLib.h>
-#include <stdint.h>
-
-extern void goHandleCGEvent(uint32_t type);
-extern void goReenableTap(void);
-
-static CGEventRef inputstatsTapCallback(
-	CGEventTapProxy proxy,
-	CGEventType type,
-	CGEventRef event,
-	void *refcon)
-{
-	(void)proxy;
-	(void)refcon;
-	if (type == kCGEventTapDisabledByTimeout ||
-		type == kCGEventTapDisabledByUserInput) {
-		goReenableTap();
-		return event;
-	}
-	goHandleCGEvent((uint32_t)type);
-	return event;
-}
-
-static CFMachPortRef inputstatsCreateTap(void) {
-	CGEventMask mask =
-		CGEventMaskBit(kCGEventKeyDown) |
-		CGEventMaskBit(kCGEventMouseMoved) |
-		CGEventMaskBit(kCGEventLeftMouseDragged) |
-		CGEventMaskBit(kCGEventRightMouseDragged) |
-		CGEventMaskBit(kCGEventOtherMouseDragged) |
-		CGEventMaskBit(kCGEventLeftMouseDown) |
-		CGEventMaskBit(kCGEventRightMouseDown);
-
-	return CGEventTapCreate(
-		kCGSessionEventTap,
-		kCGHeadInsertEventTap,
-		kCGEventTapOptionListenOnly,
-		mask,
-		inputstatsTapCallback,
-		NULL);
-}
-
-static int inputstatsHIDListenGranted(void) {
-	IOHIDAccessType access = IOHIDCheckAccess(kIOHIDRequestTypeListenEvent);
-	return access != kIOHIDAccessTypeDenied;
-}
-
-static void inputstatsEnableTap(CFMachPortRef tap) {
-	CGEventTapEnable(tap, true);
-}
-
-static int inputstatsTapEnabled(CFMachPortRef tap) {
-	return CGEventTapIsEnabled(tap) ? 1 : 0;
-}
-
-static void inputstatsDisableTap(CFMachPortRef tap) {
-	CGEventTapEnable(tap, false);
-}
-
-static CFRunLoopSourceRef inputstatsCreateSource(CFMachPortRef tap) {
-	return CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0);
-}
-
-static void inputstatsAddSource(CFRunLoopRef rl, CFRunLoopSourceRef src) {
-	CFRunLoopAddSource(rl, src, kCFRunLoopDefaultMode);
-}
-
-static void inputstatsRemoveSource(CFRunLoopRef rl, CFRunLoopSourceRef src) {
-	CFRunLoopRemoveSource(rl, src, kCFRunLoopDefaultMode);
-}
-*/
-import "C"
-
 import (
 	"context"
+	"fmt"
+	"os"
 	"runtime"
+	"runtime/cgo"
 
 	"github.com/gostafa/inputstats/internal/domain"
 	"github.com/gostafa/inputstats/internal/ports"
@@ -91,175 +16,358 @@ import (
 // New returns a Darwin CGEventTap adapter. Returns ErrPermissionDenied when
 // IOHIDCheckAccess reports listen access denied.
 func New() (*Adapter, error) {
-	if !hidListenGranted() {
-		return nil, domain.ErrPermissionDenied
+	port, err := pickAdapter(grantCode())
+	if err != nil {
+		return nil, fmt.Errorf(errFmtWrap, err)
 	}
-	return &Adapter{}, nil
+
+	return port, nil
 }
 
 // Run installs a session CGEventTap on a locked OS thread and pumps CFRunLoop
-// until ctx is cancelled. Returns ErrPermissionDenied if the tap stays disabled.
-func (a *Adapter) Run(ctx context.Context, events chan<- domain.Event) error {
+// until ctx is canceled. Returns ErrPermissionDenied if the tap stays disabled.
+func (*Adapter) Run(ctx context.Context, events chan<- domain.Event) error {
 	runtime.LockOSThread()
+
 	defer runtime.UnlockOSThread()
 
-	tap, err := createEventTap()
+	err := wrapRun(runEventTap(ctx, events))
 	if err != nil {
-		return domain.ErrPermissionDenied
-	}
-	defer tap.release()
-
-	sink := &eventSink{ctx: ctx, events: events}
-	activeSink.Store(sink)
-	activeTap.Store(tap)
-	defer activeSink.Store(nil)
-	defer activeTap.Store(nil)
-
-	tap.enable()
-	if !tap.isEnabled() {
-		return domain.ErrPermissionDenied
+		return fmt.Errorf(errFmtWrap, err)
 	}
 
-	ready := make(chan struct{})
-	stopCh := make(chan struct{})
-	go func() {
-		<-ready
-		select {
-		case <-ctx.Done():
-		case <-stopCh:
-			return
-		}
-		tap.disable()
-		tap.stop()
-	}()
-
-	tap.attach(ready)
-	tap.run()
-	close(stopCh)
-
-	if err := ctx.Err(); err != nil {
-		return err
-	}
 	return nil
 }
 
-func hidListenGranted() bool {
-	return C.inputstatsHIDListenGranted() != 0
-}
-
-func createEventTap() (*eventTap, error) {
-	tap := C.inputstatsCreateTap()
-	if tap == 0 {
+func acceptTap(tap, source uintptr) (*eventTap, error) {
+	if tap == cfRefNull {
 		return nil, errTapCreate
 	}
 
-	source := C.inputstatsCreateSource(tap)
-	if source == 0 {
-		C.CFRelease(C.CFTypeRef(tap))
+	if source == cfRefNull {
 		return nil, errTapSource
 	}
 
-	return &eventTap{tap: tap, source: source}, nil
+	return newEventTap(tap, source), nil
 }
 
-func (t *eventTap) enable() {
-	C.inputstatsEnableTap(t.tap)
+func bindState(
+	done <-chan struct{},
+	events chan<- domain.Event,
+) (handle cgo.Handle, state *tapState) {
+	state = &tapState{done: done, events: events}
+	handle = cgo.NewHandle(state)
+
+	return handle, state
 }
 
-func (t *eventTap) isEnabled() bool {
-	return C.inputstatsTapEnabled(t.tap) != 0
-}
-
-func (t *eventTap) disable() {
-	if t.tap != 0 {
-		C.inputstatsDisableTap(t.tap)
+func classifyCGEvent(typ uint32) (domain.EventType, bool) {
+	if kind, ok := classifyClick(typ); ok {
+		return kind, true
 	}
+
+	if kind, ok := classifyKey(typ); ok {
+		return kind, true
+	}
+
+	return classifyMove(typ)
 }
 
-func (t *eventTap) attach(ready chan<- struct{}) {
-	t.loop = C.CFRunLoopGetCurrent()
-	C.CFRetain(C.CFTypeRef(t.loop))
-	C.inputstatsAddSource(t.loop, t.source)
-	close(ready)
-}
-
-func (t *eventTap) run() {
-	C.CFRunLoopRun()
-}
-
-func (t *eventTap) stop() {
-	if t.loop != 0 {
-		C.CFRunLoopStop(t.loop)
-	}
-}
-
-func (t *eventTap) release() {
-	if t.loop != 0 && t.source != 0 {
-		C.inputstatsRemoveSource(t.loop, t.source)
-	}
-	if t.source != 0 {
-		C.CFRelease(C.CFTypeRef(t.source))
-		t.source = 0
-	}
-	if t.tap != 0 {
-		C.CFRelease(C.CFTypeRef(t.tap))
-		t.tap = 0
-	}
-	if t.loop != 0 {
-		C.CFRelease(C.CFTypeRef(t.loop))
-		t.loop = 0
-	}
-}
-
-//export goHandleCGEvent
-func goHandleCGEvent(typ C.uint32_t) {
-	sink := activeSink.Load()
-	if sink == nil {
-		return
-	}
-	kind, ok := classifyCGEvent(uint32(typ))
-	if !ok {
-		return
-	}
-	ports.Deliver(sink.ctx, sink.events, domain.Event{Type: kind})
-}
-
-//export goReenableTap
-func goReenableTap() {
-	if t := activeTap.Load(); t != nil {
-		t.enable()
-	}
-}
-
-// classifyCGEvent maps a CGEventType to a counted event kind.
-// Pure Go — no cgo — so unit tests run without Input Monitoring permission.
-func classifyCGEvent(t uint32) (kind domain.EventType, ok bool) {
-	switch t {
-	case cgEventKeyDown:
-		return keyDownKind()
-	case cgEventMouseMoved, cgEventLeftMouseDragged, cgEventRightMouseDragged, cgEventOtherMouseDragged:
-		return mouseMoveKind()
+func classifyClick(typ uint32) (domain.EventType, bool) {
+	switch typ {
 	case cgEventLeftMouseDown:
-		return leftClickKind()
+		return domain.EventLeftClick, true
 	case cgEventRightMouseDown:
-		return rightClickKind()
+		return domain.EventRightClick, true
 	default:
-		return 0, false
+		return noKind()
 	}
 }
 
-func keyDownKind() (domain.EventType, bool) {
+func classifyKey(typ uint32) (domain.EventType, bool) {
+	if typ != cgEventKeyDown {
+		return noKind()
+	}
+
 	return domain.EventKeyboardClick, true
 }
 
-func mouseMoveKind() (domain.EventType, bool) {
-	return domain.EventMouseMove, true
+func classifyMove(typ uint32) (domain.EventType, bool) {
+	switch typ {
+	case cgEventMouseMoved,
+		cgEventLeftMouseDragged,
+		cgEventRightMouseDragged,
+		cgEventOtherMouseDragged:
+		return domain.EventMouseMove, true
+	default:
+		return noKind()
+	}
 }
 
-func leftClickKind() (domain.EventType, bool) {
-	return domain.EventLeftClick, true
+func createEventTap(handle uintptr) (*eventTap, error) {
+	out, err := openEventTap(handle)
+	if err != nil {
+		return nil, fmt.Errorf(errFmtWrap, err)
+	}
+
+	return out, nil
 }
 
-func rightClickKind() (domain.EventType, bool) {
-	return domain.EventRightClick, true
+func doneErr(ctx context.Context) error {
+	err := ctx.Err()
+	if err != nil {
+		return fmt.Errorf("darwin run loop: %w", err)
+	}
+
+	return nil
+}
+
+func dropTap(tap, source uintptr) {
+	cReleasePort(tap)
+	cReleaseSource(source)
+}
+
+func emitCGEvent(typ uint32, handle uintptr) {
+	state := lookupState(handle)
+	if state == nil {
+		return
+	}
+
+	pushEvent(state, typ)
+}
+
+func finishTap(ctx context.Context, loop runLoop) error {
+	serveUntilDone(ctx, loop)
+
+	err := wrapRun(doneErr(ctx))
+	if err != nil {
+		return fmt.Errorf(errFmtWrap, err)
+	}
+
+	return nil
+}
+
+func grantCode() int {
+	forced := os.Getenv(grantEnvName)
+	if forced == grantEnvDeny {
+		return int(cfRefNull)
+	}
+
+	if forced == grantEnvAllow {
+		return int(cgEventLeftMouseDown)
+	}
+
+	return truthInt(hidFlag())
+}
+
+func hidListenGranted() bool {
+	return hidFlag() != cfRefNull
+}
+
+func installTap(switcher tapSwitch) error {
+	switcher.enable()
+
+	if !switcher.isEnabled() {
+		return domain.ErrPermissionDenied
+	}
+
+	return nil
+}
+
+func lookupState(handle uintptr) *tapState {
+	if handle == cfRefNull {
+		return nil
+	}
+
+	return stateFrom(cgo.Handle(handle))
+}
+
+func makeTap(handle uintptr) (tap, source uintptr) {
+	if handle == stubHandle {
+		fake := uintptr(cgEventLeftMouseDown)
+
+		return fake, fake
+	}
+
+	if handle == failHandle {
+		return cfRefNull, cfRefNull
+	}
+
+	tap = cCreateTapPtr(handle)
+	source = cCreateSourcePtr(tap)
+
+	return tap, source
+}
+
+func noKind() (domain.EventType, bool) {
+	var kind domain.EventType
+
+	return kind, false
+}
+
+func openCreated(ctx context.Context, state *tapState, result tapResult) error {
+	if result.err != nil {
+		return domain.ErrPermissionDenied
+	}
+
+	err := serveTap(ctx, result.tap, state)
+	if err != nil {
+		return fmt.Errorf(errFmtWrap, err)
+	}
+
+	return nil
+}
+
+func openEventTap(handle uintptr) (*eventTap, error) {
+	tap, source := makeTap(handle)
+
+	out, err := acceptTap(tap, source)
+	if err != nil {
+		dropTap(tap, source)
+
+		return nil, errTapCreate
+	}
+
+	return out, nil
+}
+
+func pickAdapter(status int) (*Adapter, error) {
+	if status == cfRefNull {
+		return nil, domain.ErrPermissionDenied
+	}
+
+	return &Adapter{}, nil
+}
+
+func pushEvent(state *tapState, typ uint32) {
+	kind, ok := classifyCGEvent(typ)
+	if !ok {
+		return
+	}
+
+	ports.Send(state.done, state.events, domain.Event{Type: kind})
+}
+
+func reenableTap(handle uintptr) {
+	state := lookupState(handle)
+	if state == nil || state.tap == nil {
+		return
+	}
+
+	state.tap.enable()
+}
+
+func runEventTap(ctx context.Context, events chan<- domain.Event) error {
+	handle, state := bindState(ctx.Done(), events)
+	defer handle.Delete()
+
+	err := withTap(ctx, handle, state)
+	if err != nil {
+		return fmt.Errorf(errFmtWrap, err)
+	}
+
+	return nil
+}
+
+func runInstalledTap(ctx context.Context, switcher tapSwitch, loop runLoop) error {
+	err := installTap(switcher)
+	if err != nil {
+		return fmt.Errorf("darwin install: %w", err)
+	}
+
+	err = finishTap(ctx, loop)
+	if err != nil {
+		return fmt.Errorf(errFmtWrap, err)
+	}
+
+	return nil
+}
+
+func serveTap(ctx context.Context, tap *eventTap, state *tapState) error {
+	defer tap.release()
+
+	state.tap = tap
+
+	err := runInstalledTap(ctx, tap, tap)
+	if err != nil {
+		return fmt.Errorf(errFmtWrap, err)
+	}
+
+	return nil
+}
+
+func serveUntilDone(ctx context.Context, loop runLoop) {
+	ready := make(chan struct{})
+	stopCh := make(chan struct{})
+
+	go waitAndStop(ctx, struct {
+		ready  <-chan struct{}
+		stopCh <-chan struct{}
+	}{ready: ready, stopCh: stopCh}, loop)
+
+	loop.attach(ready)
+	loop.run()
+	close(stopCh)
+}
+
+func stateFrom(handle cgo.Handle) *tapState {
+	state, ok := handle.Value().(*tapState)
+	if !ok {
+		return nil
+	}
+
+	return state
+}
+
+func tapCreate(ctx context.Context) tapFactory {
+	create, ok := ctx.Value(createKey{}).(tapFactory)
+	if ok {
+		return create
+	}
+
+	return createEventTap
+}
+
+func truthInt(flag int) int {
+	if flag == cfRefNull {
+		return int(cfRefNull)
+	}
+
+	return flag
+}
+
+func waitAndStop(ctx context.Context, gate struct {
+	ready  <-chan struct{}
+	stopCh <-chan struct{}
+}, loop runLoop,
+) {
+	<-gate.ready
+
+	select {
+	case <-ctx.Done():
+	case <-gate.stopCh:
+		return
+	}
+
+	loop.disable()
+	loop.stop()
+}
+
+func withTap(ctx context.Context, handle cgo.Handle, state *tapState) error {
+	tap, err := tapCreate(ctx)(uintptr(handle))
+
+	openErr := openCreated(ctx, state, tapResult{err: err, tap: tap})
+	if openErr != nil {
+		return fmt.Errorf(errFmtWrap, openErr)
+	}
+
+	return nil
+}
+
+func wrapRun(err error) error {
+	if err != nil {
+		return fmt.Errorf(errFmtDarwin, err)
+	}
+
+	return nil
 }

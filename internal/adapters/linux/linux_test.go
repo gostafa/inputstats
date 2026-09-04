@@ -52,14 +52,14 @@ func TestSYNCoalescesRelToOneMove(t *testing.T) {
 		typ, code uint16
 		value     int32
 	}{
-		{evRel, relX, 3},
-		{evRel, relY, -2},
-		{evSyn, synReport, 0},
+		{evRel, evSyn, 3},
+		{evRel, evKey, -2},
+		{evSyn, evSyn, 0},
 	}
 
 	var kinds []domain.EventType
 	for _, e := range events {
-		if kind, ok := parseEvdev(e.typ, e.code, e.value, &st); ok {
+		if kind, ok := parseEvdev(evdevSample{typ: e.typ, code: e.code, value: e.value}, &st); ok {
 			kinds = append(kinds, kind)
 		}
 	}
@@ -73,7 +73,7 @@ func TestSYNCoalescesRelToOneMove(t *testing.T) {
 
 func TestSYNWithoutRelEmitsNothing(t *testing.T) {
 	var st mouseState
-	if _, ok := parseEvdev(evSyn, synReport, 0, &st); ok {
+	if _, ok := parseEvdev(evdevSample{typ: evSyn, code: evSyn}, &st); ok {
 		t.Fatal("SYN alone should not emit a move")
 	}
 }
@@ -81,8 +81,8 @@ func TestSYNWithoutRelEmitsNothing(t *testing.T) {
 func TestMultiplePacketsEachEmitOneMove(t *testing.T) {
 	var st mouseState
 	feed := func() (domain.EventType, bool) {
-		parseEvdev(evRel, relX, 1, &st)
-		return parseEvdev(evSyn, synReport, 0, &st)
+		parseEvdev(evdevSample{typ: evRel, code: evSyn, value: 1}, &st)
+		return parseEvdev(evdevSample{typ: evSyn, code: evSyn}, &st)
 	}
 	for i := 0; i < 3; i++ {
 		kind, ok := feed()
@@ -94,12 +94,19 @@ func TestMultiplePacketsEachEmitOneMove(t *testing.T) {
 
 func TestParseEvdevMixedKeyboardAndClick(t *testing.T) {
 	var st mouseState
-	kind, ok := parseEvdev(evKey, keySpace, 1, &st)
+	kind, ok := parseEvdev(evdevSample{typ: evKey, code: keySpace, value: 1}, &st)
 	if !ok || kind != domain.EventKeyboardClick {
 		t.Fatalf("space: ok=%v kind=%d", ok, kind)
 	}
-	kind, ok = parseEvdev(evKey, btnLeft, 1, &st)
+	kind, ok = parseEvdev(evdevSample{typ: evKey, code: btnLeft, value: 1}, &st)
 	if !ok || kind != domain.EventLeftClick {
 		t.Fatalf("left: ok=%v kind=%d", ok, kind)
+	}
+}
+
+func TestParseEvdevUnknownType(t *testing.T) {
+	var st mouseState
+	if _, ok := parseEvdev(evdevSample{typ: 0xffff, code: evSyn}, &st); ok {
+		t.Fatal("unknown type should not emit")
 	}
 }

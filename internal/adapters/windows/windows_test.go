@@ -41,9 +41,21 @@ func TestParseMouseButtons(t *testing.T) {
 		want  []domain.EventType
 	}{
 		{name: "none", flags: 0, want: nil},
-		{name: "left_down", flags: riMouseLeftButtonDown, want: []domain.EventType{domain.EventLeftClick}},
-		{name: "right_down", flags: riMouseRightButtonDown, want: []domain.EventType{domain.EventRightClick}},
-		{name: "both_down", flags: riMouseLeftButtonDown | riMouseRightButtonDown, want: []domain.EventType{domain.EventLeftClick, domain.EventRightClick}},
+		{
+			name:  "left_down",
+			flags: riKeyBreak,
+			want:  []domain.EventType{domain.EventLeftClick},
+		},
+		{
+			name:  "right_down",
+			flags: riMouseRightButtonDown,
+			want:  []domain.EventType{domain.EventRightClick},
+		},
+		{
+			name:  "both_down",
+			flags: riKeyBreak | riMouseRightButtonDown,
+			want:  []domain.EventType{domain.EventLeftClick, domain.EventRightClick},
+		},
 		{name: "left_up_ignored", flags: 0x0002, want: nil},
 		{name: "right_up_ignored", flags: 0x0008, want: nil},
 	}

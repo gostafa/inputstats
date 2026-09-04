@@ -1,6 +1,11 @@
+// Gostafa 2026.
+// SPDX-License-Identifier: Apache-2.0.
+
 package inputstats
 
-import "github.com/gostafa/inputstats/internal/domain"
+import (
+	"github.com/gostafa/inputstats/internal/domain"
+)
 
 var (
 	// ErrPermissionDenied is returned when the OS denies input monitoring access.

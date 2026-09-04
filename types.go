@@ -1,6 +1,19 @@
+// Gostafa 2026.
+// SPDX-License-Identifier: Apache-2.0.
+
 package inputstats
 
-import "github.com/gostafa/inputstats/internal/domain"
+import (
+	"github.com/gostafa/inputstats/internal/domain"
+	"github.com/gostafa/inputstats/internal/ports"
+)
 
-// Stats holds activity counts for one aggregation interval [From, To).
-type Stats = domain.Stats
+type (
+	// Stats holds activity counts for one aggregation interval [From, To).
+	Stats = domain.Stats
+
+	boot = struct {
+		err  error
+		port ports.InputPort
+	}
+)

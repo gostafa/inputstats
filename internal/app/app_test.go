@@ -25,7 +25,12 @@ func recvStats(t *testing.T, out <-chan domain.Stats, timeout time.Duration) dom
 	}
 }
 
-func recvStatsWhere(t *testing.T, out <-chan domain.Stats, timeout time.Duration, match func(domain.Stats) bool) domain.Stats {
+func recvStatsWhere(
+	t *testing.T,
+	out <-chan domain.Stats,
+	timeout time.Duration,
+	match func(domain.Stats) bool,
+) domain.Stats {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
 	for {
@@ -40,15 +45,18 @@ func recvStatsWhere(t *testing.T, out <-chan domain.Stats, timeout time.Duration
 	}
 }
 
-func startAggregate(t *testing.T, interval time.Duration, initial ...domain.EventType) (context.CancelFunc, chan domain.Event, <-chan domain.Stats) {
+func startAggregate(
+	t *testing.T,
+	interval time.Duration,
+	initial ...domain.EventType,
+) (context.CancelFunc, chan domain.Event, <-chan domain.Stats) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	events := make(chan domain.Event, 64)
 	for _, typ := range initial {
 		events <- domain.Event{Type: typ}
 	}
-	out := make(chan domain.Stats, 1)
-	go aggregate(ctx, interval, events, out)
+	out := aggregate(ctx, interval, events)
 	t.Cleanup(func() {
 		cancel()
 		for range out {
@@ -112,13 +120,24 @@ func TestAggregateCancelClosesChannel(t *testing.T) {
 }
 
 func TestAggregateMultipleIntervalsReset(t *testing.T) {
-	_, events, out := startAggregate(t, testInterval, domain.EventKeyboardClick, domain.EventLeftClick)
+	_, events, out := startAggregate(
+		t,
+		testInterval,
+		domain.EventKeyboardClick,
+		domain.EventLeftClick,
+	)
 
 	_ = recvStatsWhere(t, out, time.Second, func(s domain.Stats) bool {
 		return s.KeyboardClicks == 1 && s.LeftClicks == 1
 	})
 
-	fakeFeeder{events: events}.send(domain.EventMouseMove, domain.EventMouseMove, domain.EventRightClick)
+	fakeFeeder{
+		events: events,
+	}.send(
+		domain.EventMouseMove,
+		domain.EventMouseMove,
+		domain.EventRightClick,
+	)
 
 	_ = recvStatsWhere(t, out, time.Second, func(s domain.Stats) bool {
 		return s.KeyboardClicks == 0 && s.MouseMoves == 2 && s.LeftClicks == 0 && s.RightClicks == 1
@@ -129,8 +148,7 @@ func TestAggregateEventsClosedStops(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	events := make(chan domain.Event, 8)
-	out := make(chan domain.Stats, 1)
-	go aggregate(ctx, testInterval, events, out)
+	out := aggregate(ctx, testInterval, events)
 
 	close(events)
 
@@ -266,6 +284,36 @@ func TestMonitorPortExitClosesChannel(t *testing.T) {
 			}
 		case <-deadline:
 			t.Fatal("timed out waiting for close after port exit")
+		}
+	}
+}
+
+func TestAggregateIgnoresUnknownEventType(t *testing.T) {
+	_, _, out := startAggregate(t, testInterval, domain.EventType(99))
+
+	s := recvStats(t, out, time.Second)
+	if s.KeyboardClicks != 0 || s.MouseMoves != 0 || s.LeftClicks != 0 || s.RightClicks != 0 {
+		t.Fatalf("expected zero stats for unknown type, got %+v", s)
+	}
+}
+
+func TestAggregateEmitStopsOnCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	events := make(chan domain.Event)
+	out := aggregate(ctx, testInterval, events)
+
+	time.Sleep(3 * testInterval)
+	cancel()
+
+	deadline := time.After(time.Second)
+	for {
+		select {
+		case _, ok := <-out:
+			if !ok {
+				return
+			}
+		case <-deadline:
+			t.Fatal("timed out waiting for close after emit cancel")
 		}
 	}
 }

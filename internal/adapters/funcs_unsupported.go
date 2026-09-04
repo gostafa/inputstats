@@ -3,11 +3,22 @@
 package adapters
 
 import (
+	"context"
+
 	"github.com/gostafa/inputstats/internal/domain"
-	"github.com/gostafa/inputstats/internal/ports"
+)
+
+type (
+	// Adapter is the placeholder port for unsupported operating systems.
+	Adapter struct{}
 )
 
 // New reports that this OS has no inputstats adapter.
-func New() (ports.InputPort, error) {
+func New() (*Adapter, error) {
 	return nil, domain.ErrUnsupportedPlatform
+}
+
+// Run reports that this OS has no inputstats adapter.
+func (*Adapter) Run(context.Context, chan<- domain.Event) error {
+	return domain.ErrUnsupportedPlatform
 }
