@@ -415,6 +415,26 @@ func TestDeliverSingleEmpty(t *testing.T) {
 	})
 }
 
+func TestDeliverSingleKeyboard(t *testing.T) {
+	events := make(chan domain.Event, 1)
+
+	deliverSingle(context.Background(), &dispatchJob{
+		event:  ev(evKey, keyA, 1),
+		state:  &mouseState{},
+		events: events,
+		class:  deviceClass{keyboard: true},
+	})
+
+	select {
+	case got := <-events:
+		if got.Type != domain.EventKeyboardClick {
+			t.Fatalf("kind=%d", got.Type)
+		}
+	default:
+		t.Fatal("expected keyboard event")
+	}
+}
+
 func TestHandleKeyIgnored(t *testing.T) {
 	handleKeyEvent(
 		context.Background(),
@@ -673,6 +693,31 @@ func TestPumpHotplugCancel(t *testing.T) {
 	}
 
 	pumpHotplug(ctx, newSession(make(chan domain.Event), deps), 1)
+}
+
+func TestPumpHotplugReadStop(t *testing.T) {
+	deps := testHookSet()
+	deps.unixRead = func(int, []byte) (int, error) {
+		return 0, errors.New("stop")
+	}
+
+	pumpHotplug(context.Background(), newSession(make(chan domain.Event), deps), 1)
+}
+
+func TestReadHotplugErr(t *testing.T) {
+	deps := testHookSet()
+	deps.unixRead = func(int, []byte) (int, error) {
+		return 0, errors.New("stop")
+	}
+
+	ok := readHotplug(context.Background(), &hotplugRead{
+		sess:    newSession(make(chan domain.Event), deps),
+		buf:     make([]byte, 1),
+		watchFD: 1,
+	})
+	if ok {
+		t.Fatal("expected stop")
+	}
 }
 
 func TestStoreNameEmpty(t *testing.T) {
