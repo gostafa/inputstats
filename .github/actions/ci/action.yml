@@ -11,7 +11,8 @@ runs:
       run: task taskotter:ci
     - name: Run Tests
       shell: bash
-      run: task taskotter:go-junit-report:test
+      run: |
+        task -t Taskfile.yml go-junit-report:report GO_JUNIT_REPORT_IN=test-result.txt GO_JUNIT_REPORT_OUT=junit.xml
     - name: Upload coverage to Codecov
       if: ${{ !cancelled() }}
       uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f  # v7.0.0
@@ -21,6 +22,7 @@ runs:
         report_type: coverage
         name: coverage-${{ runner.os }}
         flags: ${{ runner.os }}
+        env_vars: RUNNER_OS
         disable_search: false
         fail_ci_if_error: true
         verbose: true
@@ -34,5 +36,6 @@ runs:
         disable_search: false
         name: go-test-results-${{ runner.os }}
         flags: ${{ runner.os }}
+        env_vars: RUNNER_OS
         fail_ci_if_error: true
         verbose: true

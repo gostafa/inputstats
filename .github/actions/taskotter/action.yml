@@ -30,7 +30,7 @@ runs:
       uses: gostafa/TaskOtter@0ec5a4a518964034248a4675597707e15e964aa8  # v0.0.5
       with:
         github-token: ${{ inputs.token }}
-        store-version: v0.0.8
+        store-version: v0.0.9
         target-folder: taskotter
         tasks: ${{ inputs.tasks }}
         js: ${{ inputs.js }}
