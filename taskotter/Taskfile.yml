@@ -25,6 +25,8 @@ vars:
   ZIZMOR_EXTRA_ARGS: "--offline"
   ZIZMOR_NIX_INSTALLABLE: nixpkgs#zizmor
   ZIZMOR_TARGETS: ".github"
+  GO_JUNIT_REPORT_IN: ""
+  GO_JUNIT_REPORT_OUT: ""
 includes:
   go:
     taskfile: go/Taskfile.yml
@@ -39,6 +41,8 @@ includes:
       GO_JUNIT_REPORT_NIX_INSTALLABLE: '{{.GO_JUNIT_REPORT_NIX_INSTALLABLE}}'
       GO_JUNIT_REPORT: '{{.GO_JUNIT_REPORT}}'
       GO_COVER_PROFILE: '{{.GO_COVER_PROFILE}}'
+      GO_JUNIT_REPORT_IN: '{{.GO_JUNIT_REPORT_IN}}'
+      GO_JUNIT_REPORT_OUT: '{{.GO_JUNIT_REPORT_OUT}}'
   golangci-lint:
     taskfile: golangci-lint/Taskfile.yml
     dir: ..
@@ -114,11 +118,6 @@ tasks:
       - task: actionlint:install
       - task: zizmor:install
       - task: adrs:install
-  test:
-    desc: Run test for synced TaskOtter modules
-    cmds:
-      - task: go:test
-      - task: go-junit-report:test
   verify:
     desc: Run verify for synced TaskOtter modules
     cmds:
