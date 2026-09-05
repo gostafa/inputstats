@@ -1,7 +1,7 @@
 ---
 configuration:
   includes_doc: true
-  node_package_manager: ''
+  node_package_manager: ""
   sync_root: true
   target_folder: taskotter
   tasks:
@@ -18,7 +18,6 @@ generated_root_tasks:
   - ci
   - ci:fix
   - install
-  - test
   - verify
   - version
   - which
@@ -45,22 +44,22 @@ managed_files:
     source_path: taskfiles/adrs/Taskfile.yml
   - destination_module: go-junit-report
     path: taskotter/go-junit-report/README.md
-    sha256: c26e08f9c7d9baf71a2d8df96a242a8053cfea694479f5e2a8944db7957cf1b4
+    sha256: d8dac43524c2cf4489c704912bf33bce64d74500b4fb7b5319d5496239360de9
     source_module: go-junit-report
     source_path: taskfiles/go-junit-report/README.md
   - destination_module: go-junit-report
     path: taskotter/go-junit-report/Taskfile.yml
-    sha256: d0613bbffa4fd6aae1f79293607587bcc6d5c00b9ef2df48b5ac247c0e11190e
+    sha256: 219a92ffb1d0b75901366385407e273ffece33744d5f41cffc2f411e9124569c
     source_module: go-junit-report
     source_path: taskfiles/go-junit-report/Taskfile.yml
   - destination_module: go
     path: taskotter/go/README.md
-    sha256: 31c3b2735375793bc7b3bc02876c9dc896f805761169dc761a596762a81610cd
+    sha256: fd1738a1b8719b47f178e6b9b85c1b0f3962a70a71af3cb8fa7e8d1daf42e319
     source_module: go
     source_path: taskfiles/go/README.md
   - destination_module: go
     path: taskotter/go/Taskfile.yml
-    sha256: abf8bb02bf6ee738a30f73246ded532fb8fdd98503d9068f6b0d97e75186b19b
+    sha256: 2ce650cda242249a842ffe0bdf8d39ce5576bab20f4399cbdbfee1098e770425
     source_module: go
     source_path: taskfiles/go/Taskfile.yml
   - destination_module: golangci-lint
@@ -168,6 +167,6 @@ resolved_modules:
 source:
   default_branch: main
   repository: task-otter/store
-  requested_version: v0.0.8
-  resolved_commit: 124ae957e6279e420b04407e14f46956f2a3f350
-  source_ref: refs/tags/v0.0.8
+  requested_version: v0.0.9
+  resolved_commit: dba654a8ff45149771985492e50c9d04d6063034
+  source_ref: refs/tags/v0.0.9
