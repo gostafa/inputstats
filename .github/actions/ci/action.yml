@@ -19,7 +19,8 @@ runs:
         use_oidc: true
         files: ./coverage.out
         report_type: coverage
-        name: coverage
+        name: coverage-${{ runner.os }}
+        flags: ${{ runner.os }}
         disable_search: false
         fail_ci_if_error: true
         verbose: true
@@ -31,6 +32,7 @@ runs:
         report_type: test_results
         files: ./junit.xml
         disable_search: false
-        name: go-test-results
+        name: go-test-results-${{ runner.os }}
+        flags: ${{ runner.os }}
         fail_ci_if_error: true
         verbose: true
