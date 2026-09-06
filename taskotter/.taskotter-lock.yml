@@ -29,7 +29,7 @@ managed_files:
     source_path: taskfiles/actionlint/README.md
   - destination_module: actionlint
     path: taskotter/actionlint/Taskfile.yml
-    sha256: 03b91ed59828ba3dcae0ad7848aedb5b95c8008cf3c07658d880e773a2b27743
+    sha256: 6d4916e9314f85b22e59b7630f3496417cf70eef29df46a3be7162a9ab93b134
     source_module: actionlint
     source_path: taskfiles/actionlint/Taskfile.yml
   - destination_module: adrs
@@ -39,7 +39,7 @@ managed_files:
     source_path: taskfiles/adrs/README.md
   - destination_module: adrs
     path: taskotter/adrs/Taskfile.yml
-    sha256: 2c6df5f6be8c841bac53f793d0849e7990d48ad572d8ec332e0ff17efd917790
+    sha256: 0c1b4ab77e331259155245dd1fff1bb8de5e8226ad0ea437967fe3c09dee8ce2
     source_module: adrs
     source_path: taskfiles/adrs/Taskfile.yml
   - destination_module: go-junit-report
@@ -49,7 +49,7 @@ managed_files:
     source_path: taskfiles/go-junit-report/README.md
   - destination_module: go-junit-report
     path: taskotter/go-junit-report/Taskfile.yml
-    sha256: 219a92ffb1d0b75901366385407e273ffece33744d5f41cffc2f411e9124569c
+    sha256: 4e1cfc872daa3cf6366a61e2627c9f584ff72a56d9f0bc8774c0239b4017a1b2
     source_module: go-junit-report
     source_path: taskfiles/go-junit-report/Taskfile.yml
   - destination_module: go
@@ -59,7 +59,7 @@ managed_files:
     source_path: taskfiles/go/README.md
   - destination_module: go
     path: taskotter/go/Taskfile.yml
-    sha256: 2ce650cda242249a842ffe0bdf8d39ce5576bab20f4399cbdbfee1098e770425
+    sha256: a43be6ad29cac7089cf1a20f70a48a361a00564304a25d363e796b175afcb94e
     source_module: go
     source_path: taskfiles/go/Taskfile.yml
   - destination_module: golangci-lint
@@ -69,7 +69,7 @@ managed_files:
     source_path: taskfiles/golangci-lint/README.md
   - destination_module: golangci-lint
     path: taskotter/golangci-lint/Taskfile.yml
-    sha256: 11daf7e46da659a13c437581faab1c7736dd46a400f67af52f7b5d9a3c876f19
+    sha256: 9236a6bf8ff1728318fd3e4e3c7f4b99cda458636dd5fdaadfa70934890c6421
     source_module: golangci-lint
     source_path: taskfiles/golangci-lint/Taskfile.yml
   - destination_module: govulncheck
@@ -79,7 +79,7 @@ managed_files:
     source_path: taskfiles/govulncheck/README.md
   - destination_module: govulncheck
     path: taskotter/govulncheck/Taskfile.yml
-    sha256: 10e0a8f134a2d6b0928f0e6a905cb88c8953c692d7a0a7f2d103fff11a1f79ae
+    sha256: c487c075c563d0eaebab12df449dda585ff68508cdcfb03e894f273bebcbcddc
     source_module: govulncheck
     source_path: taskfiles/govulncheck/Taskfile.yml
   - destination_module: nix
@@ -89,7 +89,7 @@ managed_files:
     source_path: taskfiles/nix/README.md
   - destination_module: nix
     path: taskotter/nix/Taskfile.yml
-    sha256: 0f5e0b4d697b13a656368316677da60f525da7fdfa54173a3392a057c562f43b
+    sha256: 7fe6d209c68a48555a30ecdf9e4d6fb47ff0ae67303b2c7d94f2d123cd52795c
     source_module: nix
     source_path: taskfiles/nix/Taskfile.yml
   - destination_module: yamlfix
@@ -99,7 +99,7 @@ managed_files:
     source_path: taskfiles/yamlfix/README.md
   - destination_module: yamlfix
     path: taskotter/yamlfix/Taskfile.yml
-    sha256: ef6388dc7ee0a276ccc9a63e3e6e7c36331327f2a38c0555ab98a9fcfd3a342d
+    sha256: 0fcecb5850254d421e00d1cfa77d2e303300301c948c2e557aa4b02b0216c4d3
     source_module: yamlfix
     source_path: taskfiles/yamlfix/Taskfile.yml
   - destination_module: yamllint
@@ -109,7 +109,7 @@ managed_files:
     source_path: taskfiles/yamllint/README.md
   - destination_module: yamllint
     path: taskotter/yamllint/Taskfile.yml
-    sha256: ccda466b220aab0ce5bbbc1d5ff120365880116a8972a70b10cc216df2b76711
+    sha256: 22134456dba888bf7af2e980d3541791ffdfa576acc13a7abd5f1a7db3d4381f
     source_module: yamllint
     source_path: taskfiles/yamllint/Taskfile.yml
   - destination_module: zizmor
@@ -119,7 +119,7 @@ managed_files:
     source_path: taskfiles/zizmor/README.md
   - destination_module: zizmor
     path: taskotter/zizmor/Taskfile.yml
-    sha256: 1c76bdae809b375bab463b09121aca6d2e1b7d31cf796d9bd427f9f5f5d9e057
+    sha256: de0ce3b082b6f0567f218a4d4e8d0ed1b7628220fdd9700f940b5c66e67f2cc9
     source_module: zizmor
     source_path: taskfiles/zizmor/Taskfile.yml
 resolved_modules:
@@ -167,6 +167,6 @@ resolved_modules:
 source:
   default_branch: main
   repository: task-otter/store
-  requested_version: v0.0.9
-  resolved_commit: dba654a8ff45149771985492e50c9d04d6063034
-  source_ref: refs/tags/v0.0.9
+  requested_version: v0.0.10
+  resolved_commit: 5a311ef4b2b94280e0593e36182fd3651e1cf533
+  source_ref: refs/tags/v0.0.10
