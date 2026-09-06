@@ -6,3 +6,5 @@ coverage.html
 .lint
 .task
 .cursor
+test-result.txt
+junit.xml

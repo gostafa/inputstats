@@ -25,8 +25,10 @@ vars:
   ZIZMOR_EXTRA_ARGS: "--offline"
   ZIZMOR_NIX_INSTALLABLE: nixpkgs#zizmor
   ZIZMOR_TARGETS: ".github"
-  GO_JUNIT_REPORT_IN: ""
-  GO_JUNIT_REPORT_OUT: ""
+  # Overridable via includes.*.vars / CLI — bare "" would lock and ignore parents.
+  # See: https://taskfile.dev/docs/guide#variables
+  GO_JUNIT_REPORT_IN: '{{.GO_JUNIT_REPORT_IN | default ""}}'
+  GO_JUNIT_REPORT_OUT: '{{.GO_JUNIT_REPORT_OUT | default ""}}'
 includes:
   go:
     taskfile: go/Taskfile.yml

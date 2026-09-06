@@ -27,10 +27,10 @@ runs:
   steps:
     - name: Sync taskfiles
       id: taskotter
-      uses: gostafa/TaskOtter@0ec5a4a518964034248a4675597707e15e964aa8  # v0.0.5
+      uses: gostafa/TaskOtter@8e641d3173e3d9d327a75506e6679d43cc200e6d  # v0.0.6
       with:
         github-token: ${{ inputs.token }}
-        store-version: v0.0.9
+        store-version: v0.0.10
         target-folder: taskotter
         tasks: ${{ inputs.tasks }}
         js: ${{ inputs.js }}

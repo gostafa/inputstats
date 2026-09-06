@@ -6,4 +6,5 @@
 ## Learned Workspace Facts
 - Go module `github.com/gostafa/inputstats` is a cross-platform keyboard/mouse activity stats library (not a keylogger); public API is interval `Stats` totals only.
 - Layout uses `internal/{domain,ports,app,adapters}` with platform adapters under `adapters/{darwin,linux,windows}` (evdev, Raw Input, CGEventTap/CGO).
-- Lint is enforced via a custom golangci-lint setup in this repo (`custom-golangci-lint` / `.lint`); treat that config as off-limits unless the user explicitly asks to change it.
+- Lint is enforced via a custom golangci-lint setup (`custom-golangci-lint` / `.lint` / `.custom-gcl.yml`), including `coverlint` at 100% package coverage; treat that config as off-limits unless the user explicitly asks to change it.
+- GitHub Actions CI runs on a linux/macos OS matrix via the composite action under `.github/actions/ci`.
